@@ -1,0 +1,155 @@
+syntax = "proto3";
+package proto;
+import "google/protobuf/struct.proto";
+
+message CanHandleResponse {
+    bool canHandle = 1;
+}
+
+message CanHandleMessage {
+    string url = 1;   
+}
+
+message CloneMessage {
+    string source = 1;
+    string destination = 2;
+}
+
+message CloneResponse {
+    string destination = 1;
+    bool wasSuccess = 2;
+    int64 errorCode = 3;
+    string errorMessage = 4;
+}
+
+enum FlagType {
+    NUMBER = 0;
+    BOOLEAN = 1;
+    STRING = 2;
+}
+
+message Flag {
+    FlagType type = 1;
+    string flagName = 2;
+    string shortFlagType = 3;
+    string defaultString = 4;
+    float defaultNumber = 5;
+    bool defaultBool = 6;
+}
+
+message CLICommand {
+    string use = 1;
+    repeated string aliases = 2;
+    repeated string suggestFor = 3;
+    string shortDescription = 4;
+    string GroupID = 5;
+    string longDescription = 6;
+    string example = 7;
+    repeated Flag flags = 8;
+}
+
+message RegisterCommandRequest{}
+
+message RegisterCommandResponse {
+    CLICommand mainCommand = 1;
+    repeated RegisterCommandResponse children = 2;
+}
+
+message HandleCommandRequest {
+    repeated string args = 1;
+}
+
+enum LogLevel {
+    TRACE = 0;
+    DEBUG = 1;
+    INFO = 2;
+    WARN = 3;
+    ERROR = 5;
+    FATAL = 6;
+}
+
+enum HandleCommandResponseType {
+    LOG = 0;
+    INPUT = 1;
+    COMMAND_ERROR = 2;
+    DONE = 3;
+    HANDLEHELP = 4;
+}
+
+message HandleCommandResponse {
+    HandleCommandResponseType type = 1;
+    string message = 2;
+    LogLevel level = 3;
+}
+
+service Manager {
+    rpc CanHandle(CanHandleMessage) returns (CanHandleResponse);
+    rpc Clone(CloneMessage) returns (CloneResponse);
+}
+
+service Command {
+    // Registers the command to run
+    rpc RegisterCommand(RegisterCommandRequest) returns (RegisterCommandResponse);
+
+    // Runs before this command runs and each of its children;
+    rpc PersistentPreRun(HandleCommandRequest) returns (HandleCommandResponse);
+    // Runs before this command
+    rpc PreRun(HandleCommandRequest) returns (HandleCommandRequest);
+    // Run the command
+    rpc Run(stream HandleCommandRequest) returns (stream HandleCommandResponse);
+    // Runs after the command
+    rpc PostRun(HandleCommandRequest) returns (HandleCommandRequest);
+    // Runs after each of the commands are run
+    rpc PresistentPostRun(HandleCommandRequest) returns (HandleCommandRequest);
+}
+
+message RegisterRunnerRequest {
+}
+
+message RegisterRunnerResponse {
+    string runnerName = 1;
+}
+
+message RunRequest {
+    string runCommand = 1;
+    repeated string args = 2;
+    string path = 3;
+    string packageName = 4;
+    string commandName = 5;
+    string stepIdentifier = 6;
+    google.protobuf.Struct settings = 7;
+}
+
+message RunResponse {
+    int64 exitCode = 4;
+}
+
+service Runner {
+    rpc Run(RunRequest) returns (RunResponse);
+}
+
+
+enum PluginCapabilities {
+    COMMAND_PROVIDER = 0;
+    TASK_RUNNER = 1;
+    PROXY = 2;
+    DEPENDENCY_PROVIDER = 3;
+}
+
+message RunnerSettings {
+    string type = 1;
+}
+
+message PluginDefinition {
+    string name = 1;
+    repeated PluginCapabilities capabilities = 2;
+    oneof settings {
+        RunnerSettings runnerSettings = 3;
+    }
+}
+
+message InstallRequest {}
+
+service Installer {
+    rpc InstallPlugin(InstallRequest) returns (PluginDefinition);
+}

@@ -1,0 +1,8 @@
+{
+    "name": "Bash",
+    "executable": "plugin",
+    "settings": {},
+    "plugin_types": [
+        "runner"
+    ]
+}

@@ -1,0 +1,8 @@
+{
+    "name": "Github",
+    "executable": "plugin",
+    "settings": {},
+    "plugin_types": [
+        "code_manager"
+    ]
+}
