@@ -1,8 +1,8 @@
 go 1.19
 
 use (
+	./bashRunner
 	./core
 	./githubplugin
 	./plugins
-	./bashRunner
 )
