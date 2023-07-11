@@ -21,6 +21,8 @@ type PluginProvider interface {
 
 type pluginProvider struct {
 	plugin.Plugin
+	proto.UnimplementedRunnerServer
+	proto.UnimplementedInstallerServer
 	runnerImpl     TaskRunner
 	managerImpl    ManagerPlugin
 	name           string

@@ -1,6 +1,7 @@
 syntax = "proto3";
 package proto;
 import "google/protobuf/struct.proto";
+option go_package = ".;proto";
 
 message CanHandleResponse {
     bool canHandle = 1;
