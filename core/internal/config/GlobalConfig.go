@@ -134,30 +134,6 @@ func (g *GlobalConfig) LoadPlugins() error {
 		plugins[strings.ToLower(key)] = value
 	}
 	g.Plugins = plugins
-	// plManager := plugs.New()
-	// wg := &sync.WaitGroup{}
-	// ctx, cancelFn := context.WithCancel(context.Background())
-	// defer cancelFn()
-	// for key, value := range g.Plugins {
-	// 	wg.Add(1)
-	// 	go func() {
-	// 		defer wg.Done()
-	// 		if ctx.Err() != nil {
-	// 			return
-	// 		}
-	// 		err := g.loadPlugin(key, value)
-	// 		if err != nil {
-	// 			log.Error().Err(err)
-	// 			cancelFn()
-	// 			panic(err)
-	// 		}
-	// 	}()
-	// }
-	// wg.Wait()
-	// err := context.Cause(ctx)
-	// if err != nil {
-	// 	return err
-	// }
 
 	return nil
 }

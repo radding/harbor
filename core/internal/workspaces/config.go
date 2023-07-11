@@ -108,8 +108,11 @@ func (w *WorkspaceConfig) loadSubPackages() error {
 	log.Trace().Msgf("Found packages: %s", matches)
 	for _, pkg := range matches {
 		conf, err := loadConfig(filepath.Join(pkg, "harbor.conf"))
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
+		} else if errors.Is(err, os.ErrNotExist) {
+			log.Trace().Msgf("%s is not a harbor workspace, ignoring", pkg)
+			continue
 		}
 		w.subPackages[conf.Name] = conf
 	}
