@@ -55,8 +55,8 @@ type GlobalConfig struct {
 	PluginRepositories []PluginRepos     `yaml:"plugin_repos"`
 
 	location           string
-	management_plugins []*plugins.PluginClient
-	plugins            map[string]*plugins.PluginClient
+	management_plugins []plugins.PluginClient
+	plugins            map[string]plugins.PluginClient
 	// plugi
 }
 
@@ -77,7 +77,7 @@ func LoadConfig(pathsToSearch ...string) *GlobalConfig {
 		PluginRepositories: []PluginRepos{},
 
 		location: filepath.Join(GetDefaultConfigDir(), CONFIG_FILENAME),
-		plugins:  map[string]*plugins.PluginClient{},
+		plugins:  map[string]plugins.PluginClient{},
 	}
 	for _, i := range pathsToSearch {
 		fullPath, err := filepath.Abs(filepath.Join(i, CONFIG_FILENAME))
@@ -164,7 +164,7 @@ func (g *GlobalConfig) LoadPlugins() error {
 
 func (g *GlobalConfig) loadPlugin(name string, plugin Plugin) error {
 	log.Trace().Msgf("loading %s", name)
-	plugImpl, err := plugins.New().GetClient(plugin.PluginLocation, log.Logger)
+	plugImpl, err := plugins.NewClient().GetClient(plugin.PluginLocation, log.Logger)
 	// plugImpl, err := plugins.New().GetClient("C:\")
 	if err != nil {
 		return err
@@ -173,12 +173,12 @@ func (g *GlobalConfig) loadPlugin(name string, plugin Plugin) error {
 	if err != nil {
 		return err
 	}
-	plug := impl.(*plugins.PluginClient)
+	plug := impl.(plugins.PluginClient)
 	g.plugins[name] = plug
 	return nil
 }
 
-func (g *GlobalConfig) GetPlugin(name string) (*plugins.PluginClient, error) {
+func (g *GlobalConfig) GetPlugin(name string) (plugins.PluginClient, error) {
 	pl, ok := g.plugins[name]
 	if !ok {
 		pluginDef, ok := g.Plugins[name]
