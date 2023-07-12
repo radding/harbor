@@ -8,19 +8,28 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
+	plugins "github.com/radding/harbor-plugins"
 	"github.com/radding/harbor/internal/config"
+	"github.com/rs/zerolog/log"
 )
 
 func InstallPlugin(pluginURL string) (config.Plugin, error) {
-	return installLocal(pluginURL)
-	// urlObj, err := url.Parse(pluginURL)
-	// if err != nil {
-	// 	return config.Plugin{}, errors.Wrap(err, "error parsing plugin URL")
-	// }
-	// if urlObj.Scheme == "file" {
-	// 	return installLocal(urlObj.Path)
-	// }
-	// return config.Plugin{}, errors.New("not implemented")
+	pluginConf, err := installLocal(pluginURL)
+	if err != nil {
+		return pluginConf, errors.Wrap(err, "can't install local plugin")
+	}
+
+	plugin, err := plugins.NewClient(pluginConf.PluginLocation, log.Logger)
+	if err != nil {
+		return pluginConf, errors.Wrap(err, "can't start plugin")
+	}
+
+	conf, err := plugin.Install()
+	if err != nil {
+		return pluginConf, errors.Wrap(err, "can't install plugin")
+	}
+	pluginConf.Name = conf.Name
+	return pluginConf, err
 }
 
 func installLocal(localLocation string) (config.Plugin, error) {

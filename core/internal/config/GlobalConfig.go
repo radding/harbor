@@ -140,16 +140,11 @@ func (g *GlobalConfig) LoadPlugins() error {
 
 func (g *GlobalConfig) loadPlugin(name string, plugin Plugin) error {
 	log.Trace().Msgf("loading %s", name)
-	plugImpl, err := plugins.NewClient().GetClient(plugin.PluginLocation, log.Logger)
+	plug, err := plugins.NewClient(plugin.PluginLocation, log.Logger)
 	// plugImpl, err := plugins.New().GetClient("C:\")
 	if err != nil {
 		return err
 	}
-	impl, err := plugImpl.Dispense("client")
-	if err != nil {
-		return err
-	}
-	plug := impl.(plugins.PluginClient)
 	g.plugins[name] = plug
 	return nil
 }

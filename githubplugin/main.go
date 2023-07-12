@@ -17,7 +17,7 @@ func (d *Dummy) Clone(req plugins.CloneRequest) (string, error) {
 }
 
 func main() {
-	plugins.New().
+	plugins.NewPlugin("Github").
 		WithManager(&Dummy{}).
-		Serve()
+		ServePlugin()
 }
