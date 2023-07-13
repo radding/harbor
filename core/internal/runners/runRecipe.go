@@ -89,7 +89,7 @@ func (r *RunRecipe) Run(args []string) error {
 	var status plugins.RunResponse
 	status, r.err = runner.Run(plugins.RunRequest{
 		RunCommand:     r.runConfig.Command,
-		Args:           []string{},
+		Args:           args,
 		Path:           r.pkgObject.WorkspaceRoot(),
 		PackageName:    r.Pkg,
 		CommandName:    r.CommandName,

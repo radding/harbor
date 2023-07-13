@@ -11,6 +11,7 @@ import (
 
 func RunCommand(command string, args []string) error {
 	rootConf, err := workspaces.GetConfig()
+
 	if err != nil {
 		return errors.Wrap(err, "error getting workspace config")
 	}

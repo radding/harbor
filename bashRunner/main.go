@@ -23,7 +23,7 @@ func main() {
 
 	log.SetOutput(logOut)
 	log.Println("Starting plugin")
-	plugins.NewPlugin("bash").
-		WithTaskRunner("bash", plugins.TaskRunnerFunc(run)).
+	plugins.NewPlugin("shell").
+		WithTaskRunner("shell", plugins.TaskRunnerFunc(run)).
 		ServePlugin()
 }

@@ -164,3 +164,9 @@ func (g *GlobalConfig) GetPlugin(name string) (plugins.PluginClient, error) {
 	}
 	return pl, nil
 }
+
+func (g *GlobalConfig) KillAllPlugins() {
+	for _, pl := range g.plugins {
+		pl.Kill()
+	}
+}

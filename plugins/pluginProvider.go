@@ -33,9 +33,13 @@ type pluginProvider struct {
 }
 
 func NewPlugin(name string) PluginProvider {
+	hclLogger := hclog.New(&hclog.LoggerOptions{
+		Level:      hclog.Trace,
+		JSONFormat: true,
+	})
 	return &pluginProvider{
 		name:           name,
-		logger:         hclog.Default().With("plugin_name", name),
+		logger:         hclLogger.With("@plugin_name", name).With("@log_schema_version", "1.0.0"),
 		runnerSettings: struct{ typeName string }{},
 	}
 }
@@ -86,7 +90,7 @@ func (p *pluginProvider) Run(ctx context.Context, req *proto.RunRequest) (*proto
 		_req := RunRequest(*req)
 		ctx = context.WithValue(ctx,
 			"Logger",
-			p.logger.With("Indentifier", req.StepIdentifier),
+			p.logger.With("@identifier", req.StepIdentifier),
 		)
 		_resp, err := p.runnerImpl.RunTask(_req, ctx)
 		resp := proto.RunResponse(_resp)

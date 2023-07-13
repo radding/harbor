@@ -1,5 +1,5 @@
 {
-    "name": "Bash",
+    "name": "shell",
     "executable": "plugin",
     "settings": {},
     "plugin_types": [

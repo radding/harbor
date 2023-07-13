@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	plugins "github.com/radding/harbor-plugins"
@@ -21,11 +22,6 @@ func (s *stream) Write(bts []byte) (int, error) {
 }
 
 func run(req plugins.RunRequest, ctx context.Context) (resp plugins.RunResponse, err error) {
-	// logger := hclog.New(&hclog.LoggerOptions{
-	// 	Name:       req.PackageName,
-	// 	Level:      hclog.Trace,
-	// 	JSONFormat: true,
-	// }).With("identifier", req.StepIdentifier)
 	logger := ctx.Value("Logger").(hclog.Logger)
 	stdOut := &stream{
 		onWrite: func(bts []byte) (int, error) {
@@ -57,7 +53,12 @@ func run(req plugins.RunRequest, ctx context.Context) (resp plugins.RunResponse,
 	}
 	os.Chdir(req.Path)
 	defer os.Chdir(curPWD)
-	cmd := exec.Command("/bin/sh", "-c", req.RunCommand)
+	shellFunc := fmt.Sprintf(`
+	anon() {
+		%s
+	}
+	anon %s`, req.RunCommand, strings.Join(req.Args, " "))
+	cmd := exec.Command("/bin/sh", "-c", shellFunc)
 	cmd.Stdout = stdOut
 	cmd.Stderr = stdErr
 	if err := cmd.Run(); err != nil {

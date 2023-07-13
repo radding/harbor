@@ -17,6 +17,7 @@ type PluginDefinition proto.PluginDefinition
 type PluginClient interface {
 	Run(RunRequest) (RunResponse, error)
 	Install() (*PluginDefinition, error)
+	Kill()
 }
 
 type pluginClient struct {
@@ -24,6 +25,11 @@ type pluginClient struct {
 	managerClient proto.ManagerClient
 	runnerClient  proto.RunnerClient
 	installClient proto.InstallerClient
+	clientImpl    *plugin.Client
+}
+
+func (p *pluginClient) Kill() {
+	p.clientImpl.Kill()
 }
 
 func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, error) {
@@ -45,6 +51,7 @@ func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, erro
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Logger:           hclLogger,
 	})
+	p.clientImpl = client
 	cli, err := client.Client()
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get plugin client")
@@ -54,7 +61,9 @@ func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "can't dispense client")
 	}
-	return impl.(PluginClient), nil
+	client2 := impl.(*pluginClient)
+	client2.clientImpl = client
+	return client2, nil
 }
 
 func (p *pluginClient) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
