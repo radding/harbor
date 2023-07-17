@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/radding/harbor/internal/config"
 	"github.com/radding/harbor/internal/workspaces"
 	"github.com/rs/zerolog/log"
 )
@@ -20,8 +21,7 @@ func RunCommand(command string, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "Can't get root recipe")
 	}
-	log.Trace().Msgf("Got recipe, going to invert the recipe %s")
-	err = runStep.Run(args)
+	err = runStep.Run(args, config.Get().GetPlugin)
 
 	return err
 }
@@ -102,6 +102,9 @@ func getRootRecipe(command string, rootConfig workspaces.WorkspaceConfig) (*RunR
 				return runStep, errors.Wrapf(err, "can't get recipe for command %s in package %s", command, conf.Name)
 			}
 			runStep.Needs = append(runStep.Needs, depRecipe)
+		}
+		if len(runStep.Needs) == 0 {
+			return runStep, fmt.Errorf("no command named %q", command)
 		}
 		return runStep, nil
 	}

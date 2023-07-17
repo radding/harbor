@@ -1,11 +1,12 @@
 package runners
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
 	plugins "github.com/radding/harbor-plugins"
-	"github.com/radding/harbor/internal/config"
 	"github.com/radding/harbor/internal/workspaces"
 	"github.com/rs/zerolog/log"
 )
@@ -48,7 +49,9 @@ func (r RunRecipe) HashKey() string {
 	return fmt.Sprintf("%s:%s", r.Pkg, r.CommandName)
 }
 
-func (r *RunRecipe) Run(args []string) error {
+type runnerFetcher func(name string) (plugins.PluginClient, error)
+
+func (r *RunRecipe) Run(args []string, fetcher runnerFetcher) error {
 	// logger :=
 	r.wg.Wait()
 	if r.done {
@@ -61,14 +64,24 @@ func (r *RunRecipe) Run(args []string) error {
 	log.Trace().Str("Identifier", r.HashKey()).Msg("starting to run")
 
 	wg := sync.WaitGroup{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	for _, dep := range r.Needs {
 		log.Trace().Str("Identifier", r.HashKey()).Msgf("Waiting for dependency %s", dep.HashKey())
 		wg.Add(1)
 		go func(dep *RunRecipe) {
 			defer wg.Done()
-			r.err = dep.Run(args)
-			if r.err != nil {
-				log.Error().Err(r.err).Msgf("Failed to run %s got %s", dep.CommandName, r.err)
+			if !errors.Is(ctx.Err(), context.Canceled) {
+				err := dep.Run(args, fetcher)
+				if err != nil {
+					log.Error().Err(r.err).Msgf("Failed to run %s got %s", dep.CommandName, r.err)
+					cancel()
+					if r.err == nil {
+						r.err = err
+					} else {
+						r.err = errors.Wrap(r.err, err.Error())
+					}
+				}
 			}
 		}(dep)
 	}
@@ -81,7 +94,7 @@ func (r *RunRecipe) Run(args []string) error {
 		r.done = true
 		return r.err
 	}
-	runner, err := config.Get().GetPlugin(r.runConfig.Type)
+	runner, err := fetcher(r.runConfig.Type)
 	if err != nil {
 		r.err = err
 		return err

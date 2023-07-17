@@ -22,11 +22,18 @@ type Dependency struct {
 	CommandName string `yaml:"command"`
 }
 
+type RunCondition struct {
+	Name    string `yaml:"name"`
+	Operand string `yaml:"op"`
+	Value   string `yaml:"value"`
+}
+
 type Command struct {
-	Type         string                 `yaml:"type"`
-	Command      string                 `yaml:"command"`
-	Dependencies []Dependency           `yaml:"depends_on"`
-	Settings     map[string]interface{} `yaml:"options"`
+	Type          string                 `yaml:"type"`
+	Command       string                 `yaml:"command"`
+	RunConditions []RunCondition         `yaml:"conditions"`
+	Dependencies  []Dependency           `yaml:"depends_on"`
+	Settings      map[string]interface{} `yaml:"options"`
 }
 
 type WorkspaceConfig struct {
@@ -36,6 +43,14 @@ type WorkspaceConfig struct {
 
 	location    string
 	subPackages map[string]WorkspaceConfig
+}
+
+func (w *WorkspaceConfig) AddSubPackage(name string, conf WorkspaceConfig) {
+	if w.subPackages == nil {
+		w.subPackages = map[string]WorkspaceConfig{}
+	}
+	conf.Name = name
+	w.subPackages[name] = conf
 }
 
 func (w *WorkspaceConfig) GetPackageConfig(packageName string) (WorkspaceConfig, error) {
@@ -116,7 +131,11 @@ func (w *WorkspaceConfig) loadSubPackages() error {
 		}
 		w.subPackages[conf.Name] = conf
 	}
-	log.Trace().Msgf("loaded subpackages %s", w.subPackages)
+	subPackages := []string{}
+	for name, pkg := range w.subPackages {
+		subPackages = append(subPackages, fmt.Sprintf("%s@%s", name, pkg.location))
+	}
+	log.Trace().Msgf("loaded subpackages: %s", strings.Join(subPackages, ", "))
 	return nil
 }
 

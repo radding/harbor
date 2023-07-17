@@ -23,3 +23,4 @@ plugin
 harbor-bash-runner
 *.log
 plugins/proto/**/*.go
+.vscode/launch.json
