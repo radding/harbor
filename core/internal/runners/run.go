@@ -1,6 +1,7 @@
 package runners
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -21,7 +22,11 @@ func RunCommand(command string, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "Can't get root recipe")
 	}
-	err = runStep.Run(args, config.Get().GetPlugin)
+	globalContext, globalCancel := context.WithCancel(context.Background())
+	err = runStep.Run(args, config.Get().GetPlugin, runContext{
+		cancelCtx:  globalContext,
+		cancelFunc: globalCancel,
+	})
 
 	return err
 }

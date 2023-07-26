@@ -13,6 +13,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.SetOutput(logOut)
+	log.Println("Starting plugin")
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println(fmt.Sprintf("plugin panicked: %s", err))
@@ -20,10 +22,8 @@ func main() {
 		log.Println("plugin is exiting!")
 		logOut.Close()
 	}()
-
-	log.SetOutput(logOut)
-	log.Println("Starting plugin")
 	plugins.NewPlugin("shell").
 		WithTaskRunner("shell", plugins.TaskRunnerFunc(run)).
 		ServePlugin()
+	log.Println("Done serving, exiting")
 }

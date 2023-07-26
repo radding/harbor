@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"os"
 	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
@@ -15,7 +16,7 @@ import (
 type PluginDefinition proto.PluginDefinition
 
 type PluginClient interface {
-	Run(RunRequest) (RunResponse, error)
+	Run(RunRequest) (ClientTask, error)
 	Install() (*PluginDefinition, error)
 	Kill()
 }
@@ -50,6 +51,8 @@ func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, erro
 		Cmd:              exec.Command(pluginLocation),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Logger:           hclLogger,
+		SyncStdout:       os.Stdout,
+		SyncStderr:       os.Stderr,
 	})
 	p.clientImpl = client
 	cli, err := client.Client()
@@ -101,18 +104,4 @@ func (p *pluginClient) Clone(req CloneRequest) (string, error) {
 		return "", err
 	}
 	return resp.Destination, err
-}
-
-func runRequestPtr(r RunRequest) *proto.RunRequest {
-	v := proto.RunRequest(r)
-	return &v
-}
-
-func (p *pluginClient) Run(r RunRequest) (RunResponse, error) {
-	_req := runRequestPtr(r)
-	resp, err := p.runnerClient.Run(context.Background(), _req)
-	if err != nil {
-		return RunResponse{}, err
-	}
-	return RunResponse(*resp), nil
 }
