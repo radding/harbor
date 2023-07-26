@@ -2,11 +2,10 @@ package plugins
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/pkg/errors"
 	"github.com/radding/harbor-plugins/proto"
 	"google.golang.org/grpc"
 )
@@ -33,9 +32,13 @@ type pluginProvider struct {
 }
 
 func NewPlugin(name string) PluginProvider {
+	hclLogger := hclog.New(&hclog.LoggerOptions{
+		Level:      hclog.Trace,
+		JSONFormat: true,
+	})
 	return &pluginProvider{
 		name:           name,
-		logger:         hclog.Default().With("plugin_name", name),
+		logger:         hclLogger.With("@plugin_name", name).With("@log_schema_version", "1.0.0"),
 		runnerSettings: struct{ typeName string }{},
 	}
 }
@@ -79,21 +82,6 @@ func (p *pluginProvider) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) e
 
 func (p *pluginProvider) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
 	return nil, errors.New("attempting to create client out of server implementation")
-}
-
-func (p *pluginProvider) Run(ctx context.Context, req *proto.RunRequest) (*proto.RunResponse, error) {
-	if p.runnerImpl != nil {
-		_req := RunRequest(*req)
-		ctx = context.WithValue(ctx,
-			"Logger",
-			p.logger.With("Indentifier", req.StepIdentifier),
-		)
-		_resp, err := p.runnerImpl.RunTask(_req, ctx)
-		resp := proto.RunResponse(_resp)
-		return &resp, err
-	}
-
-	return &proto.RunResponse{}, fmt.Errorf("attempted to run, but plugin %q doesn't support runners", p.name)
 }
 
 func (p *pluginProvider) InstallPlugin(ctx context.Context, in *proto.InstallRequest) (*proto.PluginDefinition, error) {

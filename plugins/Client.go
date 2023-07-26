@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"os"
 	"os/exec"
 
 	"github.com/hashicorp/go-hclog"
@@ -15,8 +16,9 @@ import (
 type PluginDefinition proto.PluginDefinition
 
 type PluginClient interface {
-	Run(RunRequest) (RunResponse, error)
+	Run(RunRequest) (ClientTask, error)
 	Install() (*PluginDefinition, error)
+	Kill()
 }
 
 type pluginClient struct {
@@ -24,6 +26,11 @@ type pluginClient struct {
 	managerClient proto.ManagerClient
 	runnerClient  proto.RunnerClient
 	installClient proto.InstallerClient
+	clientImpl    *plugin.Client
+}
+
+func (p *pluginClient) Kill() {
+	p.clientImpl.Kill()
 }
 
 func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, error) {
@@ -44,7 +51,10 @@ func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, erro
 		Cmd:              exec.Command(pluginLocation),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 		Logger:           hclLogger,
+		SyncStdout:       os.Stdout,
+		SyncStderr:       os.Stderr,
 	})
+	p.clientImpl = client
 	cli, err := client.Client()
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get plugin client")
@@ -54,7 +64,9 @@ func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, erro
 	if err != nil {
 		return nil, errors.Wrap(err, "can't dispense client")
 	}
-	return impl.(PluginClient), nil
+	client2 := impl.(*pluginClient)
+	client2.clientImpl = client
+	return client2, nil
 }
 
 func (p *pluginClient) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
@@ -92,18 +104,4 @@ func (p *pluginClient) Clone(req CloneRequest) (string, error) {
 		return "", err
 	}
 	return resp.Destination, err
-}
-
-func runRequestPtr(r RunRequest) *proto.RunRequest {
-	v := proto.RunRequest(r)
-	return &v
-}
-
-func (p *pluginClient) Run(r RunRequest) (RunResponse, error) {
-	_req := runRequestPtr(r)
-	resp, err := p.runnerClient.Run(context.Background(), _req)
-	if err != nil {
-		return RunResponse{}, err
-	}
-	return RunResponse(*resp), nil
 }

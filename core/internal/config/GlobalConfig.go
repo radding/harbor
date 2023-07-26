@@ -121,7 +121,7 @@ func openConfig(fullPath string) io.Reader {
 	}
 	fi, err := os.Open(fullPath)
 	if err != nil {
-		log.Error().Err(err).Msgf("error opening %s", fi)
+		log.Error().Err(err).Msgf("error opening %s", fullPath)
 		return nil
 	}
 	log.Trace().Msgf("found config, opening it at %s", fullPath)
@@ -163,4 +163,10 @@ func (g *GlobalConfig) GetPlugin(name string) (plugins.PluginClient, error) {
 		}
 	}
 	return pl, nil
+}
+
+func (g *GlobalConfig) KillAllPlugins() {
+	for _, pl := range g.plugins {
+		pl.Kill()
+	}
 }

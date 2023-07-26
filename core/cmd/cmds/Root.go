@@ -141,10 +141,9 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
-	// for _, value := range os.Environ() {
-	// 	fmt.Println("got env", value)
-	// }
 	if err := rootCmd.Execute(); err != nil {
+		config.Get().KillAllPlugins()
 		os.Exit(1)
 	}
+	config.Get().KillAllPlugins()
 }

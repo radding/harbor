@@ -20,6 +20,7 @@ func InstallPlugin(pluginURL string) (config.Plugin, error) {
 	}
 
 	plugin, err := plugins.NewClient(pluginConf.PluginLocation, log.Logger)
+	defer plugin.Kill()
 	if err != nil {
 		return pluginConf, errors.Wrap(err, "can't start plugin")
 	}

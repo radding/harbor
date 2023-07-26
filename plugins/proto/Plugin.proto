@@ -111,7 +111,7 @@ message RegisterRunnerResponse {
     string runnerName = 1;
 }
 
-message RunRequest {
+message StartRequest {
     string runCommand = 1;
     repeated string args = 2;
     string path = 3;
@@ -121,12 +121,53 @@ message RunRequest {
     google.protobuf.Struct settings = 7;
 }
 
+message RunSummaryResponse {
+    int64 timeElasped = 1;
+    int64 statusCode = 2;
+}
+
+message StartResponse {
+    string runID = 1;
+}
+
+message CancelRequest {
+    string runID = 1;
+    int64 timeoutMS = 2;
+    int64 signal = 3;
+}
+
+message CancelResponse {
+    bool success = 1;
+    string error = 2;
+}
+
+message WaitRequest {
+    string runID = 1;
+}
+
+message RunRequest {
+    oneof Request {
+        StartRequest startRequest = 1;
+        CancelRequest cancelRequest = 2;
+    }
+}
+
+enum RunStatus {
+    RUNNING = 0;
+    FINISHED = 1;
+    CRASHED = 2;
+    STARTING = 3;
+    CANCELED = 4;
+}
+
 message RunResponse {
-    int64 exitCode = 4;
+    RunStatus status = 1;
+    int64 exitCode = 2;
+    int64 timeElapsed = 3;
 }
 
 service Runner {
-    rpc Run(RunRequest) returns (RunResponse);
+    rpc Run(stream RunRequest) returns (stream RunResponse);
 }
 
 
