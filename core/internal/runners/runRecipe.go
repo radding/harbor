@@ -36,6 +36,14 @@ type runContext struct {
 	cancelFunc context.CancelFunc
 }
 
+func newRunContext() *runContext {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &runContext{
+		cancelCtx:  ctx,
+		cancelFunc: cancel,
+	}
+}
+
 func (r *runContext) Cancel(signal int64, timeoutMS int64) {
 	r.cancelCtx = context.WithValue(r.cancelCtx, "signal", signal)
 	r.cancelCtx = context.WithValue(r.cancelCtx, "timeout", timeoutMS)
@@ -77,8 +85,7 @@ func (r RunRecipe) HashKey() string {
 
 type runnerFetcher func(name string) (plugins.PluginClient, error)
 
-func (r *RunRecipe) Run(args []string, fetcher runnerFetcher, runCtx runContext) error {
-	// logger :=
+func (r *RunRecipe) Run(args []string, fetcher runnerFetcher, runCtx *runContext) error {
 	r.wg.Wait()
 	if r.done {
 		log.Trace().Str("Identifier", r.HashKey()).Msg("Step has been run, skipping")
