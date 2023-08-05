@@ -3,7 +3,9 @@ package plugins
 import (
 	"encoding/json"
 	"strings"
+	"sync"
 
+	"github.com/google/uuid"
 	"github.com/radding/harbor-plugins/proto"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -31,11 +33,23 @@ type LogEntry struct {
 	PluginName       string  `json:"@plugin_name"`
 }
 
-type dumbLogWrapper struct {
-	logger zerolog.Logger
+type LogEventCapturer interface {
+	Capture(*LogEntry)
 }
 
-func (d *dumbLogWrapper) getLoggerWithLevel(lvl string) *zerolog.Event {
+type LogBroker struct {
+	logger       zerolog.Logger
+	logCapturers sync.Map
+}
+
+func NewLogBroker(logger zerolog.Logger) *LogBroker {
+	return &LogBroker{
+		logger:       logger,
+		logCapturers: sync.Map{},
+	}
+}
+
+func (d *LogBroker) getLoggerWithLevel(lvl string) *zerolog.Event {
 	switch lvl {
 	case "trace":
 		return d.logger.Trace()
@@ -53,29 +67,32 @@ func (d *dumbLogWrapper) getLoggerWithLevel(lvl string) *zerolog.Event {
 	}
 }
 
-func (d *dumbLogWrapper) Write(b []byte) (int, error) {
+func (d *LogBroker) Write(b []byte) (int, error) {
 	logEntry := &LogEntry{}
 	err := json.Unmarshal(b, logEntry)
 	if err != nil {
 		log.Error().Err(err).Msg("an error occured trying to JSON serialize message")
 		return 0, err
 	}
+	d.logCapturers.Range(func(_, value any) bool {
+		capturer := value.(LogEventCapturer)
+		capturer.Capture(logEntry)
+		return true
+	})
 	event := d.getLoggerWithLevel(logEntry.Level)
 	if logEntry.LogSchemaVersion != nil {
 		event.Str("Identifier", logEntry.Identifier)
 		event.Msg(strings.Trim(logEntry.Message, "\n"))
 	}
-	// logMsg := map[string]interface{}{}
-	// if err := json.Unmarshal([]byte(val.Message), &logMsg); err != nil {
-	// 	d.getLoggerWithLevel(val.Level).Str("Identifier", val.Identifier).Msg(val.Message)
-	// } else {
-	// 	lvl := logMsg["level"].(string)
-	// 	msg := logMsg["message"].(string)
-	// 	event := d.getLoggerWithLevel(lvl)
-	// 	for key, val := range logMsg {
-	// 		event = event.Any(key, val)
-	// 	}
-	// 	event.Msg(msg)
-	// }
 	return len(b), nil
+}
+
+func (d *LogBroker) AddCapturer(capt LogEventCapturer) string {
+	uid := uuid.NewString()
+	d.logCapturers.Store(uid, capt)
+	return uid
+}
+
+func (d *LogBroker) RemoveCapturer(uid string) {
+	d.logCapturers.Delete(uid)
 }

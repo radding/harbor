@@ -49,9 +49,11 @@ type clientTask struct {
 	srv         proto.Runner_RunClient
 	statusMutex *sync.Mutex
 	lastStatus  proto.RunResponse
+	cleanUp     func()
 }
 
 func (c *clientTask) Wait() RunResponse {
+	defer c.cleanUp()
 	for {
 		c.statusMutex.Lock()
 		status := c.lastStatus
@@ -70,6 +72,7 @@ func (c *clientTask) Status() RunResponse {
 }
 
 func (c *clientTask) watchSrv() {
+	defer c.cleanUp()
 	for {
 		resp, _ := c.srv.Recv()
 		c.statusMutex.Lock()
@@ -95,10 +98,11 @@ func (c *clientTask) Stop(signal int64, timeout int64) error {
 	})
 }
 
-func newClientTask(srv proto.Runner_RunClient, runRequest RunRequest) ClientTask {
+func newClientTask(srv proto.Runner_RunClient, runRequest RunRequest, cleanUp func()) ClientTask {
 	task := &clientTask{
 		srv:         srv,
 		statusMutex: &sync.Mutex{},
+		cleanUp:     cleanUp,
 	}
 
 	runReq := proto.StartRequest(runRequest)
@@ -130,12 +134,22 @@ func runRequestPtr(r RunRequest) *proto.StartRequest {
 }
 
 // Client implementation of Runner
-func (p *pluginClient) Run(r RunRequest) (ClientTask, error) {
+func (p *pluginClient) Run(r RunRequest, opts ...CallOption) (ClientTask, error) {
+	options := CallOptions{}
+	for _, i := range opts {
+		options = i(options)
+	}
+	var uid string
+	if options.logCapturer != nil {
+		uid = p.logger.AddCapturer(options.logCapturer)
+		// defer
+	}
+
 	stream, err := p.runnerClient.Run(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "can't start streaming server")
 	}
-	task := newClientTask(stream, r)
+	task := newClientTask(stream, r, func() { p.logger.RemoveCapturer(uid) })
 	return task, nil
 }
 

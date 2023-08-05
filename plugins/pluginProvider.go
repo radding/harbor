@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -10,11 +11,27 @@ import (
 	"google.golang.org/grpc"
 )
 
+type NotSupportedError struct {
+	name       string
+	pluginType string
+}
+
+func (n NotSupportedError) Error() string {
+	return fmt.Sprintf("plugin %s does not support %s", n.name, n.pluginType)
+}
+
+func newNotSupportedError(name, pluginType string) error {
+	return NotSupportedError{
+		name:       name,
+		pluginType: pluginType,
+	}
+}
+
 type PluginProvider interface {
 	WithManager(ManagerPlugin) PluginProvider
 	WithTaskRunner(string, TaskRunner) PluginProvider
 	WithLogger(logger hclog.Logger) PluginProvider
-
+	WithCacheProvider(CacheProvider) PluginProvider
 	ServePlugin()
 }
 
@@ -22,13 +39,21 @@ type pluginProvider struct {
 	plugin.Plugin
 	proto.UnimplementedRunnerServer
 	proto.UnimplementedInstallerServer
+	proto.UnimplementedCacherServer
 	runnerImpl     TaskRunner
 	managerImpl    ManagerPlugin
+	cachProvider   CacheProvider
 	name           string
 	logger         hclog.Logger
 	runnerSettings struct {
 		typeName string
 	}
+}
+
+func (p *pluginProvider) wrapContext(ctx context.Context, ident string) context.Context {
+	newCtx := context.WithValue(ctx, "Logger", p.logger.With("Identifier", ident))
+
+	return newCtx
 }
 
 func NewPlugin(name string) PluginProvider {
@@ -41,6 +66,11 @@ func NewPlugin(name string) PluginProvider {
 		logger:         hclLogger.With("@plugin_name", name).With("@log_schema_version", "1.0.0"),
 		runnerSettings: struct{ typeName string }{},
 	}
+}
+
+func (p *pluginProvider) WithCacheProvider(cacheProvider CacheProvider) PluginProvider {
+	p.cachProvider = cacheProvider
+	return p
 }
 
 func (p *pluginProvider) WithManager(m ManagerPlugin) PluginProvider {
@@ -76,6 +106,7 @@ func (p *pluginProvider) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) e
 	// proto.RegisterManagerServer(s, p)
 	proto.RegisterRunnerServer(s, p)
 	proto.RegisterInstallerServer(s, p)
+	proto.RegisterCacherServer(s, p)
 	// proto.Register
 	return nil
 }

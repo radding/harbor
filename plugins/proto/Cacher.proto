@@ -1,0 +1,48 @@
+syntax = "proto3";
+package proto;
+import "google/protobuf/struct.proto";
+option go_package = ".;proto";
+
+message CacheRequest {
+    string cacheKey = 1;
+    string localCacheDirectory = 4;
+    string logLine = 2;
+    string artifactToStore = 3;
+}
+
+message CacheKeyRequest {
+    string localDirectory = 1;
+    repeated string additionalData = 2;
+    repeated string dependantCacheKeys = 3;
+}
+
+message CacheKeyResponse {
+    string cacheKey = 1;
+}
+
+message CacheResponse {
+    string cacheKey = 1;
+    bool success = 2;
+    string error = 3;
+}
+
+message ReplayRequest {
+    string cacheKey = 1;
+    string localCacheDirectory = 2;
+}
+
+message ReplayResponse {
+    string logs = 1;
+    repeated string artifactLocations = 2;
+    string err = 3;
+    bool hit = 4;
+}
+
+service Cacher {
+    // CreateCacheKey takes Cache items and then create the cache key
+    rpc CreateCacheKey(CacheKeyRequest) returns (CacheKeyResponse);
+    // Stream logs or artifacts to the cache for the 
+    rpc Cache(stream CacheRequest) returns (CacheResponse);
+    // Replay cache basically returns the logs and says where the artifacts are
+    rpc ReplayCache(ReplayRequest) returns (stream ReplayResponse);
+}

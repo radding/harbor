@@ -2,7 +2,6 @@ package plugins
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -35,7 +34,6 @@ func InstallPlugin(pluginURL string) (config.Plugin, error) {
 
 func installLocal(localLocation string) (config.Plugin, error) {
 	fullPath, err := filepath.Abs(localLocation)
-	fmt.Println("fullPath:", localLocation)
 	if err != nil {
 		return config.Plugin{}, err
 	}

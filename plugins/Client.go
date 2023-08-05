@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
@@ -15,9 +16,17 @@ import (
 
 type PluginDefinition proto.PluginDefinition
 
+type CacheItem struct {
+	LogItem      string
+	ArtifactPath string
+}
+
 type PluginClient interface {
-	Run(RunRequest) (ClientTask, error)
+	Run(RunRequest, ...CallOption) (ClientTask, error)
 	Install() (*PluginDefinition, error)
+	GetCacheKey(string, []string, []string) (string, error)
+	Cache(string, string, chan CacheItem) error
+	ReplayCache(string, string) (chan CacheItem, bool, error)
 	Kill()
 }
 
@@ -26,7 +35,10 @@ type pluginClient struct {
 	managerClient proto.ManagerClient
 	runnerClient  proto.RunnerClient
 	installClient proto.InstallerClient
+	cacheClient   proto.CacherClient
 	clientImpl    *plugin.Client
+
+	logger *LogBroker
 }
 
 func (p *pluginClient) Kill() {
@@ -34,13 +46,15 @@ func (p *pluginClient) Kill() {
 }
 
 func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, error) {
+	internalLogger := &LogBroker{
+		logger:       logger,
+		logCapturers: sync.Map{},
+	}
 	p := &pluginClient{}
 
 	hclLogger := hclog.New(&hclog.LoggerOptions{
-		Level: hclog.Trace,
-		Output: &dumbLogWrapper{
-			logger: logger,
-		},
+		Level:      hclog.Trace,
+		Output:     internalLogger,
 		JSONFormat: true,
 	})
 	plugins := map[string]plugin.Plugin{}
@@ -66,6 +80,7 @@ func NewClient(pluginLocation string, logger zerolog.Logger) (PluginClient, erro
 	}
 	client2 := impl.(*pluginClient)
 	client2.clientImpl = client
+	client2.logger = internalLogger
 	return client2, nil
 }
 
@@ -79,6 +94,7 @@ func (p *pluginClient) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker
 		managerClient: proto.NewManagerClient(c),
 		runnerClient:  proto.NewRunnerClient(c),
 		installClient: proto.NewInstallerClient(c),
+		cacheClient:   proto.NewCacherClient(c),
 	}, nil
 }
 

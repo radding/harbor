@@ -1,0 +1,8 @@
+{
+    "name": "local_cache",
+    "executable": "plugin",
+    "settings": {},
+    "plugin_types": [
+        "cache_provider"
+    ]
+}

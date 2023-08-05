@@ -21,6 +21,7 @@ type task struct {
 	timeStarted time.Time
 	wasCanceled bool
 	logger      hclog.Logger
+	originalPwd string
 }
 
 func (t *task) Status() plugins.RunResponse {
@@ -37,6 +38,7 @@ func (t *task) Status() plugins.RunResponse {
 		} else if exitCode != 0 && t.wasCanceled {
 			status = proto.RunStatus_CANCELED
 		}
+		os.Chdir(t.originalPwd)
 		return plugins.RunResponse{
 			Status:      status,
 			ExitCode:    int64(exitCode),
@@ -77,7 +79,7 @@ func (s *stream) Write(bts []byte) (int, error) {
 
 func run(req plugins.RunRequest, ctx context.Context) (t plugins.Task, err error) {
 	logger := ctx.Value("Logger").(hclog.Logger)
-	logger.Trace("> running command")
+	logger.Info(fmt.Sprintf("> %s", req.RunCommand))
 	stdOut := &stream{
 		onWrite: func(bts []byte) (int, error) {
 			logger.Info(string(bts))
@@ -106,7 +108,6 @@ func run(req plugins.RunRequest, ctx context.Context) (t plugins.Task, err error
 		return nil, err
 	}
 	os.Chdir(req.Path)
-	defer os.Chdir(curPWD)
 	shellFunc := fmt.Sprintf(`
 	anon() {
 		%s
@@ -117,8 +118,9 @@ func run(req plugins.RunRequest, ctx context.Context) (t plugins.Task, err error
 	cmd.Stdout = stdOut
 	cmd.Stderr = stdErr
 	t2 := &task{
-		cmd:    cmd,
-		logger: logger,
+		cmd:         cmd,
+		logger:      logger,
+		originalPwd: curPWD,
 	}
 
 	go t2.start()

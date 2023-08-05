@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	plugins "github.com/radding/harbor-plugins"
 	"github.com/radding/harbor/internal/config"
 	"github.com/radding/harbor/internal/workspaces"
 	"github.com/rs/zerolog/log"
@@ -21,7 +22,15 @@ func RunCommand(command string, args []string) error {
 	if err != nil {
 		return errors.Wrap(err, "Can't get root recipe")
 	}
-	rCtx := newRunContext()
+
+	var plugin plugins.PluginClient = nil
+	plugin, err = rootConf.GetCacher()
+	if err != nil {
+		log.Warn().Msgf("error getting caching plugin: %s. Disabling caching for now", err.Error())
+	}
+	localCache := rootConf.GetLocalCacheDir()
+	cacher := newCacher(plugin, localCache)
+	rCtx := newRunContext(cacher)
 	defer rCtx.Cancel(9, 0)
 	err = runStep.Run(args, config.Get().GetPlugin, rCtx)
 
@@ -34,7 +43,7 @@ func getRootRecipe(command string, rootConfig workspaces.WorkspaceConfig) (*RunR
 		Pkg:         rootConfig.Name,
 		CommandName: command,
 		Needs:       []*RunRecipe{},
-		wg:          &sync.WaitGroup{},
+		lock:        &sync.Mutex{},
 		pkgObject:   rootConfig,
 	}
 	recipeGraph[runStep.HashKey()] = runStep
@@ -53,7 +62,7 @@ func getRootRecipe(command string, rootConfig workspaces.WorkspaceConfig) (*RunR
 				Pkg:         pkgConfig.Name,
 				CommandName: command,
 				Needs:       []*RunRecipe{},
-				wg:          &sync.WaitGroup{},
+				lock:        &sync.Mutex{},
 				runConfig:   &cmd,
 				pkgObject:   pkgConfig,
 			}

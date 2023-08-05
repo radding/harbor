@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	plugins "github.com/radding/harbor-plugins"
+	"github.com/radding/harbor/internal/config"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
@@ -36,13 +38,39 @@ type Command struct {
 	Settings      map[string]interface{} `yaml:"options"`
 }
 
+type CacheSettings struct {
+	Provider string                 `yaml:"provider"`
+	Settings map[string]interface{} `yaml:"Settings"`
+}
+
 type WorkspaceConfig struct {
-	Name     string             `yaml:"workspace_name"`
-	Packages []Package          `yaml:"packages"`
-	Commands map[string]Command `yaml:"commands"`
+	Name          string             `yaml:"workspace_name"`
+	Packages      []Package          `yaml:"packages"`
+	CacheSettings *CacheSettings     `yaml:"cache"`
+	Commands      map[string]Command `yaml:"commands"`
 
 	location    string
 	subPackages map[string]WorkspaceConfig
+}
+
+func (w *WorkspaceConfig) GetLocalCacheDir() string {
+	if w.CacheSettings != nil && w.CacheSettings.Settings != nil {
+		localCache, ok := w.CacheSettings.Settings["local_cache_dir"]
+		if ok {
+			return localCache.(string)
+		}
+	}
+	return filepath.Join(w.WorkspaceRoot(), ".harbor")
+}
+
+func (w *WorkspaceConfig) GetCacher() (plugins.PluginClient, error) {
+	cacheSettings := w.CacheSettings
+	if cacheSettings == nil {
+		cacheSettings = &CacheSettings{
+			Provider: "local_cache",
+		}
+	}
+	return config.Get().GetPlugin(cacheSettings.Provider)
 }
 
 func (w *WorkspaceConfig) AddSubPackage(name string, conf WorkspaceConfig) {

@@ -55,7 +55,7 @@ func (m *mockTask) Wait() plugins.RunResponse {
 	return resp
 }
 
-func (m *MockPlugin) Run(req plugins.RunRequest) (plugins.ClientTask, error) {
+func (m *MockPlugin) Run(req plugins.RunRequest, opts ...plugins.CallOption) (plugins.ClientTask, error) {
 	m.Called(req)
 	if m.errorOut && req.CommandName == "test4" {
 		return m.mockTask, fmt.Errorf("some error happened")
@@ -72,6 +72,23 @@ func (m *MockPlugin) Kill() {
 	m.Called()
 }
 
+func (m *MockPlugin) GetCacheKey(localdirectory string, dependencyKeys []string, additionalData []string) (string, error) {
+	m.Called(localdirectory, dependencyKeys, additionalData)
+	return "", nil
+}
+
+func (m *MockPlugin) Cache(cacheKey string, LocalCacheDirectory string, cacheItems chan plugins.CacheItem) error {
+	m.Called(cacheKey, LocalCacheDirectory, cacheItems)
+	return nil
+}
+
+func (m *MockPlugin) ReplayCache(cacheKey string, localCacheDir string) (chan plugins.CacheItem, bool, error) {
+	m.Called(cacheKey, localCacheDir)
+	ch := make(chan plugins.CacheItem)
+	defer close(ch)
+	return ch, false, nil
+}
+
 func TestCanRunTestFine(t *testing.T) {
 	assert := assert.New(t)
 	mockT := &mockTask{}
@@ -84,7 +101,7 @@ func TestCanRunTestFine(t *testing.T) {
 	called := false
 	calledWith := ""
 
-	rCtx := newRunContext()
+	rCtx := newRunContext(nil)
 	mockFetcher := func(name string) (plugins.PluginClient, error) {
 		called = true
 		calledWith = name
@@ -93,8 +110,8 @@ func TestCanRunTestFine(t *testing.T) {
 	mockPlugin.On("Run", mock.Anything)
 	recipe := &RunRecipe{
 		CommandName: "test",
-		wg:          &sync.WaitGroup{},
 		done:        false,
+		lock:        &sync.Mutex{},
 		runConfig: &workspaces.Command{
 			Type:    "testRunner",
 			Command: "some command",
@@ -130,7 +147,6 @@ func TestRunsInCorrectOrder(t *testing.T) {
 	mockPlugin.On("Run", mock.Anything)
 	recipe := &RunRecipe{
 		CommandName: "test1",
-		wg:          &sync.WaitGroup{},
 		done:        false,
 		runConfig: &workspaces.Command{
 			Type:    "testRunner",
@@ -140,8 +156,8 @@ func TestRunsInCorrectOrder(t *testing.T) {
 		Needs: []*RunRecipe{
 			{
 				CommandName: "test2",
-				wg:          &sync.WaitGroup{},
 				done:        false,
+				lock:        &sync.Mutex{},
 				runConfig: &workspaces.Command{
 					Type:    "testRunner",
 					Command: "some command",
@@ -149,8 +165,8 @@ func TestRunsInCorrectOrder(t *testing.T) {
 				Needs: []*RunRecipe{
 					{
 						CommandName: "test4",
-						wg:          &sync.WaitGroup{},
 						done:        false,
+						lock:        &sync.Mutex{},
 						runConfig: &workspaces.Command{
 							Type:    "testRunner",
 							Command: "some command",
@@ -160,7 +176,6 @@ func TestRunsInCorrectOrder(t *testing.T) {
 			},
 			{
 				CommandName: "test3",
-				wg:          &sync.WaitGroup{},
 				done:        false,
 				runConfig: &workspaces.Command{
 					Type:    "testRunner",
@@ -170,7 +185,7 @@ func TestRunsInCorrectOrder(t *testing.T) {
 		},
 	}
 
-	rCtx := newRunContext()
+	rCtx := newRunContext(nil)
 	err := recipe.Run([]string{}, mockFetcher, rCtx)
 	assert.NoError(err)
 	mockPlugin.AssertNumberOfCalls(t, "Run", 4)
@@ -203,8 +218,8 @@ func TestEachStepOnlyRunsOnce(t *testing.T) {
 	mockPlugin.On("Run", mock.Anything)
 	step4 := &RunRecipe{
 		CommandName: "test4",
-		wg:          &sync.WaitGroup{},
 		done:        false,
+		lock:        &sync.Mutex{},
 		runConfig: &workspaces.Command{
 			Type:    "testRunner",
 			Command: "some command",
@@ -212,8 +227,8 @@ func TestEachStepOnlyRunsOnce(t *testing.T) {
 	}
 	recipe := &RunRecipe{
 		CommandName: "test1",
-		wg:          &sync.WaitGroup{},
 		done:        false,
+		lock:        &sync.Mutex{},
 		runConfig: &workspaces.Command{
 			Type:    "testRunner",
 			Command: "some command",
@@ -222,7 +237,7 @@ func TestEachStepOnlyRunsOnce(t *testing.T) {
 		Needs: []*RunRecipe{
 			{
 				CommandName: "test2",
-				wg:          &sync.WaitGroup{},
+				lock:        &sync.Mutex{},
 				done:        false,
 				runConfig: &workspaces.Command{
 					Type:    "testRunner",
@@ -234,7 +249,6 @@ func TestEachStepOnlyRunsOnce(t *testing.T) {
 			},
 			{
 				CommandName: "test3",
-				wg:          &sync.WaitGroup{},
 				done:        false,
 				runConfig: &workspaces.Command{
 					Type:    "testRunner",
@@ -247,7 +261,7 @@ func TestEachStepOnlyRunsOnce(t *testing.T) {
 		},
 	}
 
-	rCtx := newRunContext()
+	rCtx := newRunContext(nil)
 	err := recipe.Run([]string{}, mockFetcher, rCtx)
 	assert.NoError(err)
 	mockPlugin.AssertNumberOfCalls(t, "Run", 4)
@@ -278,8 +292,8 @@ func TestWillReturnErrorsFromChildren(t *testing.T) {
 	mockPlugin.On("Run", mock.Anything).Return(nil)
 	recipe := &RunRecipe{
 		CommandName: "test1",
-		wg:          &sync.WaitGroup{},
 		done:        false,
+		lock:        &sync.Mutex{},
 		runConfig: &workspaces.Command{
 			Type:    "testRunner",
 			Command: "some command",
@@ -288,8 +302,8 @@ func TestWillReturnErrorsFromChildren(t *testing.T) {
 		Needs: []*RunRecipe{
 			{
 				CommandName: "test2",
-				wg:          &sync.WaitGroup{},
 				done:        false,
+				lock:        &sync.Mutex{},
 				runConfig: &workspaces.Command{
 					Type:    "testRunner",
 					Command: "some command",
@@ -297,8 +311,8 @@ func TestWillReturnErrorsFromChildren(t *testing.T) {
 				Needs: []*RunRecipe{
 					{
 						CommandName: "test4",
-						wg:          &sync.WaitGroup{},
 						done:        false,
+						lock:        &sync.Mutex{},
 						runConfig: &workspaces.Command{
 							Type:    "testRunner",
 							Command: "some command",
@@ -308,8 +322,8 @@ func TestWillReturnErrorsFromChildren(t *testing.T) {
 			},
 			{
 				CommandName: "test3",
-				wg:          &sync.WaitGroup{},
 				done:        false,
+				lock:        &sync.Mutex{},
 				runConfig: &workspaces.Command{
 					Type:    "testRunner",
 					Command: "some command",
@@ -318,7 +332,7 @@ func TestWillReturnErrorsFromChildren(t *testing.T) {
 		},
 	}
 
-	rCtx := newRunContext()
+	rCtx := newRunContext(nil)
 	err := recipe.Run([]string{}, mockFetcher, rCtx)
 	assert.Error(err)
 	// call test4 and test1
