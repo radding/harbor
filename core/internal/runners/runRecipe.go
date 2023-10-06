@@ -90,6 +90,23 @@ type runnerFetcher func(name string) (plugins.PluginClient, error)
 func (r *RunRecipe) Run(args []string, fetcher runnerFetcher, runCtx *runContext) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
+	if r.runConfig != nil {
+		shouldRun := true
+		for _, cond := range r.runConfig.RunConditions {
+			res, err := cond.Expr.Evaluate(r.pkgObject.VariableLookUpService())
+			if err != nil {
+				log.Warn().Str("Identifier", r.HashKey()).Msg("failed to evaluate run conditions, assuming true")
+				continue
+			}
+			shouldRun = shouldRun && res
+		}
+		if !shouldRun {
+			r.done = true
+			log.Info().Str("Identifier", r.HashKey()).Msg("Run conditions evaluated to false, skipping")
+			return nil
+		}
+
+	}
 	if r.done {
 		log.Trace().Str("Identifier", r.HashKey()).Msg("Step has been run, skipping")
 		return r.err

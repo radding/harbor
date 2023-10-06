@@ -5,14 +5,41 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
 	plugins "github.com/radding/harbor-plugins"
+	mathparser "github.com/radding/harbor/internal/MathParser"
 	"github.com/radding/harbor/internal/config"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
+
+type envVarLookup struct {
+}
+
+func (e *envVarLookup) GetValue(variableName string) (*mathparser.Value, error) {
+	value, present := os.LookupEnv(variableName)
+	if !present {
+		return nil, fmt.Errorf("%s not present in environment", variableName)
+	}
+	floatVal, err := strconv.ParseFloat(value, 64)
+	if err == nil {
+		return &mathparser.Value{
+			Number: &floatVal,
+		}, nil
+	}
+	boolVal, err := strconv.ParseBool(value)
+	if err == nil {
+		return &mathparser.Value{
+			BoolVal: (*mathparser.Boolean)(&boolVal),
+		}, nil
+	}
+	return &mathparser.Value{
+		StringValue: &value,
+	}, nil
+}
 
 type Package struct {
 	Name *string `yaml:"name"`
@@ -25,15 +52,21 @@ type Dependency struct {
 }
 
 type RunCondition struct {
-	Name    string `yaml:"name"`
-	Operand string `yaml:"op"`
-	Value   string `yaml:"value"`
+	Expr *mathparser.Expression
+}
+
+func (r *RunCondition) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	data := ""
+	unmarshal(&data)
+	var err error = nil
+	r.Expr, err = mathparser.Parse(data)
+	return err
 }
 
 type Command struct {
 	Type          string                 `yaml:"type"`
 	Command       string                 `yaml:"command"`
-	RunConditions []RunCondition         `yaml:"conditions"`
+	RunConditions []*RunCondition        `yaml:"conditions"`
 	Dependencies  []Dependency           `yaml:"depends_on"`
 	Settings      map[string]interface{} `yaml:"options"`
 }
@@ -51,6 +84,10 @@ type WorkspaceConfig struct {
 
 	location    string
 	subPackages map[string]WorkspaceConfig
+}
+
+func (w *WorkspaceConfig) VariableLookUpService() mathparser.VariableLookUp {
+	return &envVarLookup{}
 }
 
 func (w *WorkspaceConfig) GetLocalCacheDir() string {
