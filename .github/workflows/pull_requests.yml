@@ -1,0 +1,72 @@
+name: "Harbor pull request verification"
+on:
+  - pull_request
+jobs:
+  Protoc:
+    name: "Compile Proto files"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v1
+        with:
+          version: '3.x'
+      - name: Installing protoc-gen-go
+        run: |
+          go install github.com/golang/protobuf/protoc-gen-go
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc          
+      - name: Generating protos
+        run: |
+          protoc --proto_path=plugins/proto/ --go_out=plugins/proto --go_opt=paths=source_relative Plugin.proto Cacher.proto
+          protoc -I ./plugins/proto/ ./plugins/proto/Plugin.proto ./plugins/proto/Cacher.proto --go-grpc_out=./plugins/proto
+  Get_Changed_Files:
+    name: "Get Changed files"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine Which Package Changed
+        id: changed-files-yaml
+        uses: tj-actions/changed-files@v39
+        with:
+          files_yaml: |
+            bashRunner:
+              - 'bashRunner/**'
+            core:
+              - 'core/**'
+            githubplugin:
+              - 'githubplugin/**'
+            localCache:
+              - 'localCache/**'
+            plugins:
+              - 'plugins/**'
+
+  Unit_Tests:
+    runs-on: ubuntu-latest
+    needs: [Get_Changed_Files, Protoc]
+    strategy:
+      matrix:
+        go-version: [ '1.19', '1.20', '1.21.x' ]
+        subPackage: 
+            - changedFlag: bashRunner_any_changed
+              package: "github.com/radding/harbor-bash-runner"
+            - changedFlag: core_any_changed
+              package: "github.com/radding/harbor"
+            - changedFlag: githubplugin_any_changed
+              package: "github.com/radding/harbor-gitplugin"
+            - changedFlag: localCache_any_changed
+              package: "github.com/radding/harbor-local-cache"
+            - changedFlag: plugins_any_changed
+              package: "github.com/radding/harbor-plugins"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Install deps
+        run: go get 
+      # You can test your matrix by printing the current Go version
+      - name: Test with the Go CLI
+        if: steps.changed-files-yaml.outputs.${{matrix.subPackage.changedFlag}} == 'true'
+        run: go test ${{matrix.subPackage.package}}/..
