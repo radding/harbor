@@ -70,7 +70,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Install deps
+      - name: Install deps in ${{matrix.subPackage.dir}}
         working-directory: ./${{matrix.subPackage.dir}}
         run: go get 
       # You can test your matrix by printing the current Go version
