@@ -70,9 +70,9 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Install deps in ${{matrix.subPackage.dir}}
-        working-directory: ./${{matrix.subPackage.dir}}
-        run: go get 
+      # - name: Install deps in ${{matrix.subPackage.dir}}
+      #   working-directory: ./${{matrix.subPackage.dir}}
+      #   run: go get 
       # You can test your matrix by printing the current Go version
       - name: Test with the Go CLI
         if: steps.changed-files-yaml.outputs.${{matrix.subPackage.changedFlag}} == 'true'
