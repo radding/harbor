@@ -76,7 +76,14 @@ func (c *clientTask) watchSrv() {
 	for {
 		resp, _ := c.srv.Recv()
 		c.statusMutex.Lock()
-		c.lastStatus = *resp
+		if resp != nil {
+			c.lastStatus = *resp
+		} else {
+			c.lastStatus = proto.RunResponse{
+				Status:   proto.RunStatus_CRASHED,
+				ExitCode: -1,
+			}
+		}
 		c.statusMutex.Unlock()
 		switch c.lastStatus.Status {
 		case proto.RunStatus_FINISHED, proto.RunStatus_CRASHED, proto.RunStatus_CANCELED:

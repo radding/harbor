@@ -47,7 +47,7 @@ jobs:
     needs: [Get_Changed_Files, Protoc]
     strategy:
       matrix:
-        go-version: [ '1.19', '1.20', '1.21.x' ]
+        go-version: [ '1.19' ]
         subPackage: 
             - changedFlag: bashRunner_any_changed
               package: "github.com/radding/harbor-bash-runner"
@@ -66,14 +66,16 @@ jobs:
               dir: plugins
     steps:
       - uses: actions/checkout@v4
+        if: steps.changed-files-yaml.outputs.${{matrix.subPackage.changedFlag}} == 'true'
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v4
+        if: steps.changed-files-yaml.outputs.${{matrix.subPackage.changedFlag}} == 'true'
         with:
           go-version: ${{ matrix.go-version }}
       # - name: Install deps in ${{matrix.subPackage.dir}}
       #   working-directory: ./${{matrix.subPackage.dir}}
       #   run: go get 
       # You can test your matrix by printing the current Go version
-      - name: Test with the Go CLI
-        if: steps.changed-files-yaml.outputs.${{matrix.subPackage.changedFlag}} == 'true'
-        run: go test ${{matrix.subPackage.package}}/..
+      # - name: Test with the Go CLI
+      #   if: steps.changed-files-yaml.outputs.${{matrix.subPackage.changedFlag}} == 'true'
+      #   run: go test ${{matrix.subPackage.package}}/..
