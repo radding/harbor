@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -15,31 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
-
-type envVarLookup struct {
-}
-
-func (e *envVarLookup) GetValue(variableName string) (*mathparser.Value, error) {
-	value, present := os.LookupEnv(variableName)
-	if !present {
-		return nil, fmt.Errorf("%s not present in environment", variableName)
-	}
-	floatVal, err := strconv.ParseFloat(value, 64)
-	if err == nil {
-		return &mathparser.Value{
-			Number: &floatVal,
-		}, nil
-	}
-	boolVal, err := strconv.ParseBool(value)
-	if err == nil {
-		return &mathparser.Value{
-			BoolVal: (*mathparser.Boolean)(&boolVal),
-		}, nil
-	}
-	return &mathparser.Value{
-		StringValue: &value,
-	}, nil
-}
 
 type Package struct {
 	Name *string `yaml:"name"`
@@ -87,7 +61,9 @@ type WorkspaceConfig struct {
 }
 
 func (w *WorkspaceConfig) VariableLookUpService() mathparser.VariableLookUp {
-	return &envVarLookup{}
+	n := newVariableResolver()
+	n.registerProvider("env", ProviderFunc(getEnvVariable))
+	return n
 }
 
 func (w *WorkspaceConfig) GetLocalCacheDir() string {

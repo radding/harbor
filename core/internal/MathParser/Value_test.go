@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type testCase struct {
@@ -129,11 +130,13 @@ func TestValueComparison(t *testing.T) {
 }
 
 type ValueLookup struct {
+	mock.Mock
 	returns *Value
 	err     error
 }
 
-func (v *ValueLookup) GetValue(variableName string) (*Value, error) {
+func (v *ValueLookup) GetValue(providerName, variableName string) (*Value, error) {
+	v.Called(providerName, variableName)
 	return v.returns, v.err
 }
 
@@ -144,8 +147,12 @@ func TestLookup(t *testing.T) {
 			Number: floatPtr(1.0),
 		},
 	}
+	v.On("GetValue", "env", "OS").Once()
 	underTest := &Value{
-		EnvVar: stringPtr("testEnv"),
+		Variable: &VariableDef{
+			Provider: stringPtr("env"),
+			Value:    stringPtr("OS"),
+		},
 	}
 	v2, err := underTest.Evaluate(v)
 	assert.NoError(err)

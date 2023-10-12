@@ -8,14 +8,16 @@ import (
 
 func TestCanParseFine(t *testing.T) {
 	assert := assert.New(t)
-	expr, err := Parse("$THING1 >= \"Test\"")
+	expr, err := Parse("${{env.OS}} >= \"Test\"")
 	v := &ValueLookup{
 		returns: &Value{
 			StringValue: stringPtr("\"Test\""),
 		},
 	}
+	v.On("GetValue", "env", "OS").Once()
 	assert.NoError(err)
-	assert.Equal("THING1", *expr.Left.Left.EnvVar)
+	assert.Equal("env", *expr.Left.Left.Variable.Provider)
+	assert.Equal("OS", *expr.Left.Left.Variable.Value)
 	assert.Equal(OpGte, *expr.Left.ComparisonOperator)
 	assert.Equal("\"Test\"", *expr.Left.Right.StringValue)
 
@@ -26,7 +28,7 @@ func TestCanParseFine(t *testing.T) {
 
 func TestCanParseComplex(t *testing.T) {
 	assert := assert.New(t)
-	expr, err := Parse("$THING1 >= \"Test\" && 0 == 0 || 3 == 10")
+	expr, err := Parse("${{env.OS}} >= \"Test\" && 0 == 0 || 3 == 10")
 
 	assert.NoError(err)
 	v := &ValueLookup{
@@ -34,6 +36,7 @@ func TestCanParseComplex(t *testing.T) {
 			StringValue: stringPtr("\"Test\""),
 		},
 	}
+	v.On("GetValue", "env", "OS").Once()
 	res, err := expr.Evaluate(v)
 	assert.NoError(err)
 	assert.True(res)
