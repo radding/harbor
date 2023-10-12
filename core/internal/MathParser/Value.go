@@ -2,11 +2,20 @@ package mathparser
 
 import "fmt"
 
+type VariableDef struct {
+	Provider *string `@Ident`
+	Value    *string `"." @Ident`
+}
+
+func (v *VariableDef) String() string {
+	return fmt.Sprintf("%s.%s", *v.Provider, *v.Value)
+}
+
 type Value struct {
-	Number      *float64 `  @(Float|Int)`
-	StringValue *string  `| @(String)`
-	BoolVal     *Boolean `| @("true" | "false")`
-	EnvVar      *string  `| "$" @Ident`
+	Number      *float64     `  @(Float|Int)`
+	StringValue *string      `| @(String)`
+	BoolVal     *Boolean     `| @("true" | "false")`
+	Variable    *VariableDef `| "$" "{" "{" @@ "}" "}"`
 }
 
 func (v *Value) String() string {
@@ -22,7 +31,7 @@ func (v *Value) String() string {
 		}
 		return "B(false)"
 	}
-	return fmt.Sprintf("E(%s)", *v.EnvVar)
+	return fmt.Sprintf("E(%s)", v.Variable.String())
 }
 
 func (v *Value) valType() string {
@@ -103,8 +112,8 @@ func (v *Value) Compare(v2 *Value, op Operator) (bool, error) {
 }
 
 func (v *Value) Evaluate(lookup VariableLookUp) (*Value, error) {
-	if v.EnvVar != nil {
-		return lookup.GetValue(*v.EnvVar)
+	if v.Variable != nil {
+		return lookup.GetValue(*v.Variable.Provider, *v.Variable.Value)
 	}
 	return v, nil
 }

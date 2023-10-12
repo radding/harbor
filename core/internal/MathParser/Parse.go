@@ -98,7 +98,7 @@ func (o *OpTerm) Evaluate(lookup VariableLookUp, leftValue bool) (bool, error) {
 }
 
 type VariableLookUp interface {
-	GetValue(variableName string) (*Value, error)
+	GetValue(providerName, variableName string) (*Value, error)
 }
 
 type ComparisonExpression struct {
