@@ -9,12 +9,12 @@ import (
 
 var testStr = `
 Cond:
-  - $TEST_ENV == "hello"
-  - $TEST_ENV2 != "help"
-  - $TEST_ENV3 > 0
-  - $TEST_ENV4 >= 0
-  - $TEST_ENV5 < 0
-  - $TEST_ENV6 <= 0
+  - ${{env.TEST_ENV}} == "hello"
+  - ${{env.TEST_ENV2}} != "help"
+  - ${{env.TEST_ENV3}} > 0
+  - ${{env.TEST_ENV4}} >= 0
+  - ${{env.TEST_ENV5}} < 0
+  - ${{env.TEST_ENV6}} <= 0
 `
 
 func TestCanParseRunCondition(t *testing.T) {
