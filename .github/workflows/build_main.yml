@@ -14,14 +14,18 @@ jobs:
         package:
           - exeName: bashPlugin
             package: github.com/radding/harbor-bash-runner
+            buildPackage: github.com/radding/harbor-bash-runner
             dir: bashRunner
           - exeName: harbor
+            buildPackage: github.com/radding/harbor/cmd
             package: github.com/radding/harbor
             dir: core
           - exeName: gitPlugin
+            buildPackage: github.com/radding/harbor-gitplugin
             package: github.com/radding/harbor-gitplugin
             dir: githubplugin
           - exeName: localCachePlugin
+            buildPackage: github.com/radding/harbor-local-cache
             package: github.com/radding/harbor-local-cache
             dir: localCache
 
@@ -46,11 +50,9 @@ jobs:
           go-version-file: ./go.work
       - name: Test ${{ matrix.package.package }}
         run: ls -al && go test ${{matrix.package.package }}/...
-      #   - name: Build ${{ matrix.package.package }}
-      #     if: ${{matrix.os}} == "windows"
-      #     working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
-      #     run: go build -o ${{ matrix.package.exeName }}.exe .
       - name: Build ${{ matrix.package.package }}
-        # if: ${{matrix.os}} != "windows"
-        working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
-        run: go build -o ${{ matrix.package.exeName }} .
+        if: ${{matrix.os}} == "windows"
+        run: go build -o ${{ matrix.package.exeName }}.exe ${{matrix.package.buildPackage}}
+      - name: Build ${{ matrix.package.package }}
+        if: ${{matrix.os}} != "windows"
+        run: go build -o ${{ matrix.package.exeName }} ${{matrix.package.buildPackage}}
