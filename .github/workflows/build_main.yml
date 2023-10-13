@@ -51,7 +51,7 @@ jobs:
           check-latest: true
           cache-dependency-path: "**/*.sum"
       - name: Test ${{ matrix.package.package }}
-        run: pwd && go test ${{matrix.package.package }}/...
+        run: ls -al && go test ${{matrix.package.package }}/...
       - name: Build ${{ matrix.package.package }}
         if: ${{matrix.os}} == "windows"
         working-directory: ${{ matrix.package.dir }}
