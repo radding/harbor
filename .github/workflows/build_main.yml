@@ -48,9 +48,9 @@ jobs:
         run: ls -al && go test ${{matrix.package.package }}/...
       - name: Build ${{ matrix.package.package }}
         if: ${{matrix.os}} == "windows"
-        working-directory: ${{ matrix.package.dir }}
+        working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
         run: go build -o ${{ matrix.package.exeName }}.exe .
       - name: Build ${{ matrix.package.package }}
         if: ${{matrix.os}} != "windows"
-        working-directory: ${{ matrix.package.dir }}
+        working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
         run: go build -o ${{ matrix.package.exeName }} .
