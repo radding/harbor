@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [darwin, linux, windows]
+        os: [darwin, linux]
         arch: [amd64, arm64]
         package:
           - exeName: bashPlugin
@@ -46,11 +46,11 @@ jobs:
           go-version-file: ./go.work
       - name: Test ${{ matrix.package.package }}
         run: ls -al && go test ${{matrix.package.package }}/...
+      #   - name: Build ${{ matrix.package.package }}
+      #     if: ${{matrix.os}} == "windows"
+      #     working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
+      #     run: go build -o ${{ matrix.package.exeName }}.exe .
       - name: Build ${{ matrix.package.package }}
-        if: ${{matrix.os}} == "windows"
-        working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
-        run: go build -o ${{ matrix.package.exeName }}.exe .
-      - name: Build ${{ matrix.package.package }}
-        if: ${{matrix.os}} != "windows"
+        # if: ${{matrix.os}} != "windows"
         working-directory: ${{github.workspace}}/${{ matrix.package.dir }}
         run: go build -o ${{ matrix.package.exeName }} .
